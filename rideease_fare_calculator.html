@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RideEase Fare Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+    #map {
+      height: 0px;
+      visibility: hidden;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+</head>
+<body>
+  <h2>RideEase Sri Lanka - Fare Calculator</h2>
+  <label for="pickup">Pickup Location:</label>
+  <input type="text" id="pickup" placeholder="Enter pickup location">
+
+  <label for="drop">Drop Location:</label>
+  <input type="text" id="drop" placeholder="Enter drop location">
+
+  <label for="vehicle">Select Vehicle Type:</label>
+  <select id="vehicle">
+    <option value="mini">Mini</option>
+    <option value="sedan">Sedan</option>
+    <option value="van">Van</option>
+    <option value="suv">SUV</option>
+    <option value="tuk">Tuk Tuk</option>
+  </select>
+
+  <label for="hourly">Hourly Booking (optional):</label>
+  <select id="hourly">
+    <option value="no">No</option>
+    <option value="1">1 Hour</option>
+    <option value="2">2 Hours</option>
+    <option value="3">3 Hours</option>
+  </select>
+
+  <button onclick="calculateFare()">Calculate Fare</button>
+  <div id="result"></div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+  <script>
+    let map = L.map('map').setView([7.8731, 80.7718], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const pickupInput = document.getElementById("pickup");
+    const dropInput = document.getElementById("drop");
+
+    function addGeocoder(input) {
+      const geocoder = L.Control.geocoder({
+        defaultMarkGeocode: false
+      }).on('markgeocode', function(e) {
+        input.value = e.geocode.name;
+      }).addTo(map);
+
+      input.addEventListener('focus', () => {
+        geocoder._container.style.display = 'block';
+      });
+    }
+
+    addGeocoder(pickupInput);
+    addGeocoder(dropInput);
+
+    async function calculateFare() {
+      const vehicleRates = {
+        mini: 50,
+        sedan: 60,
+        van: 75,
+        suv: 90,
+        tuk: 30
+      };
+
+      const hourlyRate = 500;
+      const baseRate = 5;
+
+      const pickup = pickupInput.value;
+      const drop = dropInput.value;
+      const vehicle = document.getElementById("vehicle").value;
+      const hourly = document.getElementById("hourly").value;
+
+      if (!pickup || !drop) {
+        document.getElementById("result").textContent = "Please enter both pickup and drop locations.";
+        return;
+      }
+
+      const url = `https://router.project-osrm.org/route/v1/driving/${encodeURIComponent(pickup)};${encodeURIComponent(drop)}?overview=false`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const distanceKm = data.routes[0].distance / 1000;
+        const kmRate = vehicleRates[vehicle];
+        let fare = 0;
+
+        if (distanceKm <= baseRate) {
+          fare = kmRate * baseRate;
+        } else {
+          fare = kmRate * distanceKm;
+        }
+
+        if (hourly !== "no") {
+          fare += hourlyRate * parseInt(hourly);
+        }
+
+        document.getElementById("result").textContent = `Estimated Fare: LKR ${fare.toFixed(2)} (Distance: ${distanceKm.toFixed(2)} km)`;
+      } catch (e) {
+        document.getElementById("result").textContent = "Failed to calculate distance. Please try again.";
+      }
+    }
+  </script>
+</body>
+</html>
